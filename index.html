@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Location Tracking Demo</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  max-width: 430px;
+  margin: auto;
+  padding: 20px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+h2 {
+  margin-bottom: 10px;
+}
+
+.notice {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 15px;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+#location-btn {
+  background: #007bff;
+  color: #fff;
+}
+
+#open-browser-btn {
+  background: #ff4d4d;
+  color: #fff;
+}
+
+#insta-warning {
+  display: none;
+  background: #ffe6e6;
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  color: #b30000;
+}
+
+#status {
+  margin-top: 15px;
+  font-size: 14px;
+  white-space: pre-line;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📍 Location Tracking Demo</h2>
+
+<p class="notice">
+This educational project stores location in Google Sheets
+only after user permission.
+</p>
+
+<div id="insta-warning">
+  ⚠ Instagram in-app browser restricts location access.<br><br>
+  Please open this page in Chrome or Safari.
+  <br><br>
+  <button id="open-browser-btn" onclick="openInBrowser()">
+    Open in Browser
+  </button>
+</div>
+
+<button id="location-btn" onclick="requestLocation()">
+  Share Location
+</button>
+
+<p id="status"></p>
+
+<script>
+// -----------------------------
+// CONFIG: Google Apps Script URL
+// -----------------------------
+const SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbw93soAdKaQtP2ja3h8UBgOxxFvf6SulbyHDGQRQMJUxaNXAPQJvhvQTFbX726UGuX6/exec";
+
+// -----------------------------
+// Detect Instagram Browser
+// -----------------------------
+function isInstagramBrowser() {
+  return navigator.userAgent.toLowerCase().includes("instagram");
+}
+
+const instaWarning = document.getElementById("insta-warning");
+const locationBtn = document.getElementById("location-btn");
+
+if (isInstagramBrowser()) {
+  instaWarning.style.display = "block";
+  locationBtn.style.display = "none";
+}
+
+// -----------------------------
+// Open in External Browser
+// -----------------------------
+function openInBrowser() {
+  const url = window.location.href;
+
+  if (/android/i.test(navigator.userAgent)) {
+    window.location.href =
+      "intent://" + url.replace(/^https?:\/\//, "") +
+      "#Intent;scheme=https;package=com.android.chrome;end";
+  } else {
+    alert("Tap ••• and choose 'Open in Browser'");
+  }
+}
+
+// -----------------------------
+// Request Location (User Click)
+// -----------------------------
+function requestLocation() {
+  const status = document.getElementById("status");
+
+  if (!navigator.geolocation) {
+    status.innerText = "❌ Geolocation not supported.";
+    return;
+  }
+
+  status.innerText = "⏳ Requesting location...";
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const accuracy = pos.coords.accuracy;
+
+      const mapLink = `https://www.google.com/maps?q=${lat},${lng}`;
+
+      status.innerText =
+        `✅ Location Received\n\nLatitude: ${lat}\nLongitude: ${lng}\nAccuracy: ${accuracy} m\n\nSaving to Google Sheet...`;
+
+      // -----------------------------
+      // Send to Google Sheet
+      // -----------------------------
+      fetch(SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          latitude: lat,
+          longitude: lng,
+          accuracy: accuracy,
+          mapLink: mapLink,
+          userAgent: navigator.userAgent,
+          timestamp: new Date().toLocaleString()
+        })
+      });
+
+      status.innerText += "\n\n✅ Data saved successfully!";
+    },
+    (err) => {
+      switch (err.code) {
+        case err.PERMISSION_DENIED:
+          status.innerText = "❌ Permission denied.";
+          break;
+        case err.POSITION_UNAVAILABLE:
+          status.innerText = "❌ Location unavailable.";
+          break;
+        case err.TIMEOUT:
+          status.innerText = "❌ Location request timed out.";
+          break;
+        default:
+          status.innerText = "❌ Unknown error.";
+      }
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    }
+  );
+}
+</script>
+
+</body>
+</html>
